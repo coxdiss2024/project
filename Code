@@ -1,1 +1,608 @@
-print("hello world")
+#install.packages("smfsb")
+#install.packages("adaptivetau")
+#install.packages("scales")
+#install.packages("deSolve")
+library("smfsb")
+library("adaptivetau")
+library("scales")
+library("deSolve")
+
+#### Start Biological Info ####
+bio_setup = function(MOI,V, rate_2_order = 1){
+  MOI <<- MOI
+  V <<- V
+  nA <<- 6.02e+23
+  cellv <<- V * 1e-15
+  N <<- list()
+  N$M <<- c(CRO=0, CI=0, CII=0, CRO2=0, CI2=0, CII2=0, P_rmr= MOI, P_re= MOI, P_rmr.CRO2=0, P_rmr.CI2=0, P_re.CII2=0, mRNA.CRO=0, mRNA.CI=0, mRNA.CII=0)
+  N$Pre <<- matrix(c(2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 
+                 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 
+                 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+                 
+                 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 
+                 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+                 
+                 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+                 
+                 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+                 
+                 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+                 
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+                 
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1),ncol=14,byrow=TRUE)
+  
+  N$Post <<- matrix(c(0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  
+                  0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  
+                  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+                  0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  
+                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  
+                  0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+                  0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                  
+                  0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+                  0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                  
+                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+                  0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+                  
+                  0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0,
+                  0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0,
+                  0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+                  0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1,
+                  
+                  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+                  0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+                  0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+                  
+                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),ncol=14,byrow=TRUE)
+  
+  N$h <<- function(x,t,th=c(k.CRO.fwd = 1e06, k.CI.fwd = 1e06, k.CII.fwd = 1e06,k.CRO.bwd = 0.1, k.CI.bwd = 0.1, k.CII.bwd = 0.1,
+                        gamma.CRO = 0.05, gamma.CI = 0.04, gamma.CII = 0.12,
+                        CRO.bind = 1e06, CI.bind = 1e06,CII.bind = 1e06,CRO.unbind = 0.1, CI.unbind = 0.1,CII.unbind = 0.1,
+                        beta.CI = 1.6, delta.CI = 1.2, alpha.CRO = 0.8, alpha.CII = 0.8,
+                        sigma.CRO = 0.5, sigma.CI = 0.5, sigma.CII = 0.5,
+                        omega.CRO = 0.1, omega.CI = 0.1, omega.CII = 0.1))
+  {
+    with(as.list(c(x,th)),{
+      return(c(k.CRO.fwd * CRO*(CRO-rate_2_order)/(nA*cellv), k.CRO.bwd * CRO2,
+               
+               k.CI.fwd * CI*(CI-rate_2_order)/(nA*cellv), k.CI.bwd * CI2,
+               
+               k.CII.fwd * CII*(CII-rate_2_order)/(nA*cellv), k.CII.bwd * CII2,
+               
+               gamma.CRO * CRO, gamma.CI * CI, gamma.CII * CII,
+               
+               CRO.bind * P_rmr*CRO2/(nA*cellv), CRO.unbind * P_rmr.CRO2, 
+               
+               CI.bind * P_rmr*CI2/(nA*cellv),CI.unbind * P_rmr.CI2,
+               
+               CII.bind * P_re*CII2/(nA*cellv),CII.unbind * P_re.CII2,
+               
+               beta.CI * P_rmr.CI2, delta.CI * P_re.CII2, alpha.CRO * P_rmr, alpha.CII * P_rmr,
+               
+               sigma.CRO * mRNA.CRO, sigma.CI * mRNA.CI, sigma.CII * mRNA.CII,
+               
+               omega.CRO * mRNA.CRO, omega.CI * mRNA.CI, omega.CII * mRNA.CII))
+    })
+  }
+}
+
+#### End Biological Info ####
+
+
+#### Start Euler Section ####
+
+# This code uses Euler's method to produce the deterministic dynamics of the system 
+
+dt = 0.001
+
+bio_setup(1,1)
+deterministic_11 <- simTs(N$M, 0, 100, 0.1, stepFun = StepEulerSPN(N, dt))
+deterministic_11 <- deterministic_11/V
+bio_setup(2,1)
+deterministic_21 <- simTs(N$M, 0, 100, 0.1, stepFun = StepEulerSPN(N, dt))
+deterministic_21 <- deterministic_21/V
+bio_setup(2,2)
+deterministic_22 <- simTs(N$M, 0, 100, 0.1, stepFun = StepEulerSPN(N, dt))
+deterministic_22 <- deterministic_22/V
+
+# plot the dynamics of the 3 main proteins 
+par(mfrow = c(3,3))
+{
+plot(deterministic_11[,1], ylab = '[CRO]',xlab = 'Time (minutes)',pch="")
+plot(deterministic_11[,2], ylab = '[CI]',xlab = 'Time (minutes)',pch="")
+plot(deterministic_11[,3], ylab = '[CII]',xlab = 'Time (minutes)',pch="")
+abline(v = 60, lty = 2, lwd = 1.5)
+abline(h = mean(deterministic_11[1:600,3]), col = 'red', lwd = 1.5)
+mtext("Multiplicity of Infection = 1, Cell Volume = 1 x 10^-15", side = 3, line = - 2, outer = TRUE)
+
+plot(deterministic_21[,1], ylab = '[CRO]',xlab = 'Time (minutes)',pch="")
+plot(deterministic_21[,2], ylab = '[CI]',xlab = 'Time (minutes)',pch="")
+plot(deterministic_21[,3], ylab = '[CII]',xlab = 'Time (minutes)',pch="")
+abline(v = 60, lty = 2, lwd = 1.5)
+abline(h = mean(deterministic_21[1:600,3]), col = 'red', lwd = 1.5)
+mtext("Multiplicity of Infection = 2, Cell Volume = 1 x 10^-15", side = 3, line = - 16, outer = TRUE)
+
+plot(deterministic_22[,1], ylab = '[CRO]',xlab = 'Time (minutes)',pch="")
+plot(deterministic_22[,2], ylab = '[CI]',xlab = 'Time (minutes)',pch="")
+plot(deterministic_22[,3], ylab = '[CII]',xlab = 'Time (minutes)',pch="")
+abline(v = 60, lty = 2, lwd = 1.5)
+abline(h = mean(deterministic_22[1:600,3]), col = 'red', lwd = 1.5)
+mtext("Multiplicity of Infection = 2, Cell Volume = 2 x 10^-15", side = 3, line = - 29, outer = TRUE)
+}
+mean(deterministic_11[1:600,3])
+mean(deterministic_21[1:600,3])
+mean(deterministic_22[1:600,3])
+
+# graphs showing the percentage of lysogens for varying decision thresholds
+x = (1:500)/10
+par(mfrow = c(1,2))
+plot(x,(x >mean(deterministic_11[1:600,3]))*100, type = 'l', xlab = 'Decision Threshold', ylab = 'Percentage of Lysogens', main = '(1,1)')
+plot(x,(x >mean(deterministic_21[1:600,3]))*100, type = 'l', xlab = 'Decision Threshold', ylab = 'Percentage of Lysogens', main = '(2,1)')
+
+
+# Measuring the average time to model the system using StepEulerSPN with varying dt
+n = 1000
+bio_setup(1,1)
+times <- c(1.0,0.5,0.1,0.05,0.01,0.05,0.001)
+for (dt in times) {
+  print(dt)
+  print(system.time(
+    for( i in 1:n){
+      deterministic_11 <- simTs(N$M, 0, 100, 0.1, stepFun = StepEulerSPN(N, dt))
+    }
+  )/n)
+}
+
+
+#### End Euler Section ####
+
+#### Start deSolve Section ####
+
+# specify the rate constants 
+parameters <- c(k.CRO.fwd = 1e06, k.CI.fwd = 1e06, k.CII.fwd = 1e06,k.CRO.bwd = 0.1, k.CI.bwd = 0.1, k.CII.bwd = 0.1,
+                gamma.CRO = 0.05, gamma.CI = 0.04, gamma.CII = 0.12,
+                CRO.bind = 1e06, CI.bind = 1e06,CII.bind = 1e06,CRO.unbind = 0.1, CI.unbind = 0.1,CII.unbind = 0.1,
+                beta.CI = 1.6, delta.CI = 1.2, alpha.CRO = 0.8, alpha.CII = 0.8,
+                sigma.CRO = 0.5, sigma.CI = 0.5, sigma.CII = 0.5,
+                omega.CRO = 0.1, omega.CI = 0.1, omega.CII = 0.1)
+
+
+# a function to calculate the rates of change
+reaction<-function(t, state, parameters) {
+  with(as.list(c(state, parameters)),{
+    # rate of change
+    dCRO <- 2 * k.CRO.bwd * CRO2 - 2 * k.CRO.fwd * CRO**2/(nA*cellv) + sigma.CRO * mRNA.CRO - gamma.CRO * CRO 
+    dCRO2 <- - k.CRO.bwd * CRO2 + k.CRO.fwd * CRO**2/(nA*cellv) + CRO.unbind * P_rmr.CRO2 - CRO.bind * P_rmr * CRO2/(nA*cellv)
+    
+    dCI <- 2 * k.CI.bwd * CI2 - 2 * k.CI.fwd * CI**2/(nA*cellv) + sigma.CI * mRNA.CI - gamma.CI * CI 
+    dCI2 <- - k.CI.bwd * CI2 + k.CI.fwd * CI**2/(nA*cellv) + CI.unbind * P_rmr.CI2 - CI.bind * P_rmr * CI2/(nA*cellv)
+    
+    dCII <- 2 * k.CII.bwd * CII2 - 2 * k.CII.fwd * CII**2/(nA*cellv) + sigma.CII * mRNA.CII - gamma.CII * CII 
+    dCII2 <- - k.CII.bwd * CII2 + k.CII.fwd * CII**2/(nA*cellv) + CII.unbind * P_re.CII2 - CII.bind * P_re * CII2/(nA*cellv)
+    
+    dP_rmr <- CRO.unbind * P_rmr.CRO2 + CI.unbind * P_rmr.CI2 - CRO.bind * P_rmr * CRO2/(nA*cellv) - CI.bind * P_rmr * CI2/(nA*cellv)
+    dP_re <-  - CII.bind * P_re * CII2/(nA*cellv) + CII.unbind * P_re.CII2
+    
+    dP_rmr.CRO2 <- CRO.bind * P_rmr * CRO2/(nA*cellv) - CRO.unbind * P_rmr.CRO2 
+    dP_rmr.CI2 <- CI.bind * P_rmr * CI2/(nA*cellv) - CI.unbind * P_rmr.CI2 
+    dP_re.CII2 <- CII.bind * P_re * CII2/(nA*cellv) - CII.unbind * P_re.CII2
+    
+    dmRNA.CRO <- alpha.CRO * P_rmr - omega.CRO * mRNA.CRO
+    dmRNA.CI <- beta.CI * P_rmr.CI2 + delta.CI * P_re.CII2 - omega.CI * mRNA.CI
+    dmRNA.CII <- alpha.CII * P_rmr - omega.CII * mRNA.CII
+    
+    
+    # return the rate of change
+    list(c(dCRO, dCI, dCII, dCRO2, dCI2, dCII2, dP_rmr, dP_re, dP_rmr.CRO2, dP_rmr.CI2, dP_re.CII2, dmRNA.CRO, dmRNA.CI, dmRNA.CII))
+  }) # end with(as.list ...
+}
+
+# set the resolution
+times <- seq(0, 100, by = 0.1)
+
+# solve for different MOI and V 
+bio_setup(1,1)
+state <- c(CRO=0, CI=0, CII=0, CRO2=0, CI2=0, CII2=0, P_rmr= MOI, P_re= MOI, P_rmr.CRO2=0, P_rmr.CI2=0, P_re.CII2=0, mRNA.CRO=0, mRNA.CI=0, mRNA.CII=0)
+deterministic_11 <- ode(y = state, times = times, func = reaction, parms = parameters)
+deterministic_11 <- deterministic_11/V
+bio_setup(2,1)
+state <- c(CRO=0, CI=0, CII=0, CRO2=0, CI2=0, CII2=0, P_rmr= MOI, P_re= MOI, P_rmr.CRO2=0, P_rmr.CI2=0, P_re.CII2=0, mRNA.CRO=0, mRNA.CI=0, mRNA.CII=0)
+deterministic_21 <- ode(y = state, times = times, func = reaction, parms = parameters)
+deterministic_21 <- deterministic_21/V
+bio_setup(2,2)
+state <- c(CRO=0, CI=0, CII=0, CRO2=0, CI2=0, CII2=0, P_rmr= MOI, P_re= MOI, P_rmr.CRO2=0, P_rmr.CI2=0, P_re.CII2=0, mRNA.CRO=0, mRNA.CI=0, mRNA.CII=0)
+deterministic_22 <- ode(y = state, times = times, func = reaction, parms = parameters)
+deterministic_22 <- deterministic_22/V
+
+# plots to show the dynamics 
+par(mfrow = c(3,3))
+{
+  plot(deterministic_11[,2], x = times, ylab = '[CRO]',xlab = 'Time (minutes)', type = 'l')
+  plot(deterministic_11[,3], x = times, ylab = '[CI]',xlab = 'Time (minutes)', type = 'l')
+  plot(deterministic_11[,4], x = times, ylab = '[CII]',xlab = 'Time (minutes)', type = 'l')
+  abline(v = 60, lty = 2, lwd = 1.5)
+  abline(h = mean(deterministic_11[1:600,4]), col = 'red', lwd = 1.5)
+  mtext("Multiplicity of Infection = 1, Cell Volume = 1 x 10^-15", side = 3, line = - 2, outer = TRUE)
+  
+  plot(deterministic_21[,2], x = times,ylab = '[CRO]',xlab = 'Time (minutes)', type = 'l')
+  plot(deterministic_21[,3], x = times,ylab = '[CI]',xlab = 'Time (minutes)', type = 'l')
+  plot(deterministic_21[,4], x = times,ylab = '[CII]',xlab = 'Time (minutes)', type = 'l')
+  abline(v = 60, lty = 2, lwd = 1.5)
+  abline(h = mean(deterministic_21[1:600,4]), col = 'red', lwd = 1.5)
+  mtext("Multiplicity of Infection = 2, Cell Volume = 1 x 10^-15", side = 3, line = - 13, outer = TRUE)
+  
+  plot(deterministic_22[,2], x = times,ylab = '[CRO]',xlab = 'Time (minutes)', type = 'l')
+  plot(deterministic_22[,3], x = times,ylab = '[CI]',xlab = 'Time (minutes)', type = 'l')
+  plot(deterministic_22[,4], x = times,ylab = '[CII]',xlab = 'Time (minutes)', type = 'l')
+  abline(v = 60, lty = 2, lwd = 1.5)
+  abline(h = mean(deterministic_22[1:600,4]), col = 'red', lwd = 1.5)
+  mtext("Multiplicity of Infection = 2, Cell Volume = 2 x 10^-15", side = 3, line = - 25, outer = TRUE)
+}
+
+#### End deSolve Section ####
+
+
+#### Start Gillespie Section ####
+
+# One realisation of MOI = V = 1
+
+bio_setup(1,1)
+Gillespie_11 <- simTs(N$M, 0, 100, 0.01, stepFun = StepGillespie(N))
+
+# Plot all species against time for this realistation
+par(mfrow = c(7,2))
+for (i in 1:14) {
+  plot(Gillespie_11[,i], ylab = paste('[',names(N$M[i]),']'))
+}
+mtext('One Stochastic Realistation of the Model Using Gillespie', side = 3, line = - 3, outer = TRUE)
+
+
+# Modelling samples of realisations 
+n = 1000
+par(mfrow = c(1,1))
+sample_CII <- c()
+for( i in 1:n){
+  out <- simTs(N$M, 0, 60, 0.1, stepFun = StepGillespie(N))/V
+  out_CII <- out[,3]
+  sample_CII <- cbind(sample_CII,out_CII)
+}
+colnames(sample_CII) <- 1:100
+matplot(sample_CII, type = 'l',x = (1:600)/10, col = alpha('blue', 0.25), lty = 1, ylab = "[CII]", xlab = "Time (minutes)")
+points(rowMeans(sample_CII),x = (1:600)/10, type = 'l', lwd = 2)
+# if run after StepEulerSPN deterministic_11[1:600,3] if after deSolve deterministic_11[1:600,4]
+lines(deterministic_11[1:600,3], x = (1:600)/10, col = 'red', lwd = 2)
+mtext('Mulitple Realisations', cex = 1.5)
+
+# n realisations of the system with MOI = V = 1
+n = 5000
+bio_setup(1,1)
+avg1 <- c()
+for( i in 1:n){
+  out <- simTs(N$M, 0, 60, 1, stepFun = StepGillespie(N))/V
+  avg1[i] <- mean(out[,3])
+}
+
+
+# n realisations of the system with MOI = V = 2
+
+bio_setup(2,2)
+avg2 <- c()
+for( i in 1:n){
+  out <- simTs(N$M, 0, 60, 1, stepFun = StepGillespie(N))/V
+  avg2[i] <- mean(out[,3])
+}
+# Histograms to show the distibution of the average concentration of CII
+par(mfrow = c(1,1))
+
+hist(avg1, breaks = 25, xlab = '<[CII]>',probability = TRUE, main = 'Concentration of CII with MOI = 1')
+abline(v = mean(avg1), col = 'blue', lwd = 4)
+legend("topright", c("mean"), col=c("blue"), lwd=10, bty = 'n')
+
+hist(avg2, breaks = 25, xlab = '<[CII]>', main = 'Concentration of CII with MOI = 2')
+abline(v = mean(avg2), col = 'blue', lwd = 4)
+legend("topright", c("mean"), col=c("blue"), lwd=10, bty = 'n')
+# mean and variance of the distributions
+mean(avg1)
+mean(avg2)
+var(avg1)
+var(avg2)
+
+# graph to show the number of cells below the threshold for each threshold 
+par(mfrow = c(1,1))
+plot(x = sort(avg1), y = 100*(1:n)/n, col = 'red', type = 'l', lwd = 2, xlab = 'Decision Threshold', ylab = 'Percentage of Lysogens', main = 'Decision Threshold vs Percentage of Lysogens')+
+  points(x = sort(avg2),y = 100*(1:n)/n, col = 'blue', type = 'l', lwd = 2)
+legend("bottomright", c("MOI = 1","MOI = 2"), col=c("red", "blue"), lwd=10, bty = 'n')
+plot(avg2,avg1)
+
+
+# average time to run the algorithm over n runs
+n = 10000
+print(system.time(
+  for( i in 1:n){
+    out <- simTs(N$M, 0, 100, 0.1, stepFun = StepGillespie(N))
+  }
+)/n)
+
+#### End Gillespie Section ####
+
+
+#### Start PTS Section ####
+
+# One realisation for varying timesteps 
+bio_setup(1,1)
+par(mfrow = c(2,2))
+timesteps <- c(0.1,0.05,0.01,0.005)
+for (dt in timesteps) {
+  out <- simTs(N$M,0,60,0.1, stepFun = StepPTS(N,dt = dt))/V
+  plot(out[,3], ylab = "[CII]", xlab = "Time (minutes)", main = paste("Tau = ", dt), type = 'l')
+}
+
+# n realisations of the system with MOI = V = 1
+n = 1000
+bio_setup(1,1)
+avg1 <- c()
+for( i in 1:n){
+  out <- simTs(N$M, 0, 60, 1, stepFun = StepPTS(N))/V
+  avg1[i] <- mean(out[,3])
+}
+
+# n realisations of the system with MOI = V = 2
+
+bio_setup(2,2)
+avg2 <- c()
+for( i in 1:n){
+  out <- simTs(N$M, 0, 60, 1, stepFun = StepPTS(N))/V
+  avg2[i] <- mean(out[,3])
+}
+
+# Exclude errors introduced due to negative values of chemical species 
+avg1 <- na.exclude(avg1)
+avg2 <- na.exclude(avg2)
+# Histograms to show the distibution of the average concentration of CII
+par(mfrow = c(1,2))
+
+hist(avg1, breaks = 25, xlab = '<[CII]>',probability = TRUE, main = 'Concentration of CII with MOI = 1')
+abline(v = mean(avg1), col = 'blue', lwd = 4)
+legend("topright", c("mean"), col=c("blue"), lwd=10, bty = 'n')
+
+hist(avg2, breaks = 30, xlab = '<[CII]>', main = 'Concentration of CII with MOI = 2')
+abline(v = mean(avg2), col = 'blue', lwd = 4)
+legend("topright", c("mean"), col=c("blue"), lwd=10, bty = 'n')
+
+mean(avg1)
+mean(avg2)
+var(avg1)
+var(avg2)
+
+# The time average time to model the system for various dt
+times <- c(0.1,0.05,0.01,0.005,0.001)
+n <- 1000
+for (dt in times) {
+  print(dt)
+  print(system.time({
+    for( i in 1:n){
+      out <- simTs(N$M, 0, 60, 0.01, stepFun = StepPTS(N,dt = dt))
+    }
+  })/n)
+}
+
+#### End PTS Section ####
+
+
+#### Start Tau Leap Section ####
+
+# List the possible reactions
+transitions = list(c(CRO = -2, CRO2 = +1),
+                   c(CRO = +2, CRO2 = -1),
+                   
+                   c(CI = -2, CI2 = +1), 
+                   c(CI = +2, CI2 = -1),
+                   
+                   c(CII = -2, CII2 = +1),
+                   c(CII = +2, CII2 = -1),
+                   
+                   c(CRO = -1),
+                   c(CI = -1),
+                   c(CII = -1),
+                   
+                   c(P_rmr = -1, CRO2 = -1, P_rmr.CRO2 = +1),
+                   c(P_rmr = +1, CRO2 = +1, P_rmr.CRO2 = -1),
+                   
+                   c(P_rmr = -1, CI2 = -1, P_rmr.CI2 = +1),
+                   c(P_rmr = +1, CI2 = +1, P_rmr.CI2 = -1),
+                   
+                   c(P_re = -1, CII2 = -1, P_re.CII2 = +1),
+                   c(P_re = +1, CII2 = +1, P_re.CII2 = -1),
+                   
+                   c(mRNA.CI = +1),
+                   c(mRNA.CI = +1),
+                   c(mRNA.CRO = +1),
+                   c(mRNA.CII = +1),
+                   
+                   c(CRO = +1),
+                   c(CI = +1),
+                   c(CII = +1),
+                   
+                   c(mRNA.CRO = -1),
+                   c(mRNA.CI = -1),
+                   c(mRNA.CII = -1)) 
+# Function to calculate reaction rates, given chemicals and rate constants
+lvrates <- function(x, params, t) {
+  return(c(params$k.CRO.fwd * x["CRO"]*(x["CRO"]-1)/(nA*cellv), params$k.CRO.bwd * x["CRO2"],
+           
+           params$k.CI.fwd * x["CI"]*(x["CI"]-1)/(nA*cellv), params$k.CI.bwd * x["CI2"],
+           
+           params$k.CII.fwd * x["CII"]*(x["CII"]-1)/(nA*cellv), params$k.CII.bwd * x["CII2"],
+           
+           params$gamma.CRO * x["CRO"], params$gamma.CI * x["CI"], params$gamma.CII * x["CII"],
+           
+           params$CRO.bind * x["P_rmr"]*x["CRO2"]/(nA*cellv), params$CRO.unbind * x["P_rmr.CRO2"], 
+           
+           params$CI.bind * x["P_rmr"]*x["CI2"]/(nA*cellv), params$CI.unbind * x["P_rmr.CI2"],
+           
+           params$CII.bind * x["P_re"]*x["CII2"]/(nA*cellv), params$CII.unbind * x["P_re.CII2"],
+           
+           params$beta.CI * x["P_rmr.CI2"], params$delta.CI * x["P_re.CII2"], params$alpha.CRO * x["P_rmr"], params$alpha.CII * x["P_rmr"],
+           
+           params$sigma.CRO * x["mRNA.CRO"], params$sigma.CI * x["mRNA.CI"], params$sigma.CII * x["mRNA.CII"],
+           
+           params$omega.CRO * x["mRNA.CRO"], params$omega.CI * x["mRNA.CI"], params$omega.CII * x["mRNA.CII"])) # rate of predators dying
+}
+# Set the rate constants
+params = list(k.CRO.fwd = 1e06, k.CI.fwd = 1e06, k.CII.fwd = 1e06,k.CRO.bwd = 0.1, k.CI.bwd = 0.1, k.CII.bwd = 0.1,
+                gamma.CRO = 0.05, gamma.CI = 0.04, gamma.CII = 0.12,
+                CRO.bind = 1e06, CI.bind = 1e06,CII.bind = 1e06,CRO.unbind = 0.1, CI.unbind = 0.1,CII.unbind = 0.1,
+                beta.CI = 1.6, delta.CI = 1.2, alpha.CRO = 0.8, alpha.CII = 0.8,
+                sigma.CRO = 0.5, sigma.CI = 0.5, sigma.CII = 0.5,
+                omega.CRO = 0.1, omega.CI = 0.1, omega.CII = 0.1);
+# an adapted version of the SMFSB function discretise which now works with the output of adaptivetau
+discretise1 <- function(out, dt = 1, start = 0)
+{
+  events = length(out[,1])
+  end = out[events,1]
+  len = (end - start)%/%dt + 1
+  x = matrix(nrow = len, ncol = 14)
+  target = 0
+  j = 1
+  for(i in 1:events) {
+    while(out[i,1] >= target) {
+      x[j, ] = out[i,2:15 ]
+      j = j + 1
+      target = target + dt
+    }
+  }
+  ts(x, start = 0, deltat = dt)
+}
+# Perform the stochastic simulation and plot the results for various epsilon
+bio_setup(1,1)
+par(mfrow = c(3,2))
+eps <- c(1,0.5,0.1,0.05,0.01,0.005)
+for (i in eps) {
+  r=ssa.adaptivetau(c(CRO=0, CI=0, CII=0, CRO2=0, CI2=0, CII2=0, P_rmr= 1, P_re= 1, P_rmr.CRO2=0, P_rmr.CI2=0, P_re.CII2=0, mRNA.CRO=0, mRNA.CI=0, mRNA.CII=0), transitions, lvrates, params, tl.params = list(epsilon = i), tf=60)/V
+  plot(x = r[,"time"], y = r[,"CII"], ylab = "[CII]", xlab = "Time (minutes)", main = paste("Epsilon = ", i), type = 'l')
+}
+
+
+# n realisations of the system with MOI = V = 1
+n = 1000
+bio_setup(1,1)
+avg1 <- c()
+for( i in 1:n){
+  print(i)
+  out <- ssa.adaptivetau(c(CRO=0, CI=0, CII=0, CRO2=0, CI2=0, CII2=0, P_rmr= 1, P_re= 1, P_rmr.CRO2=0, P_rmr.CI2=0, P_re.CII2=0, mRNA.CRO=0, mRNA.CI=0, mRNA.CII=0), transitions, lvrates, params, tf=60)
+  avg1[i] <- mean(discretise1(out,0.1)[,3])
+}
+
+# n realisations of the system with MOI = V = 2
+
+bio_setup(2,2)
+avg2 <- c()
+for( i in 1:n){
+  out <- ssa.adaptivetau(c(CRO=0, CI=0, CII=0, CRO2=0, CI2=0, CII2=0, P_rmr= MOI, P_re= MOI, P_rmr.CRO2=0, P_rmr.CI2=0, P_re.CII2=0, mRNA.CRO=0, mRNA.CI=0, mRNA.CII=0), transitions, lvrates, params, tf=60)/V
+  avg2[i] <- mean(discretise1(out,0.1)[,3])
+}
+
+# Histograms to show the distibution of the average concentration of CII
+par(mfrow = c(1,2))
+
+
+hist(avg1[,2], breaks = 25, xlab = '<[CII]>',probability = TRUE, main = 'Concentration of CII with MOI = 1')
+abline(v = mean(avg1[,2]), col = 'blue', lwd = 4)
+legend("topright", c("mean"), col=c("blue"), lwd=10, bty = 'n')
+
+hist(avg2, breaks = 30, xlab = '<[CII]>', main = 'Concentration of CII with MOI = 2')
+abline(v = mean(avg2), col = 'blue', lwd = 4)
+legend("topright", c("mean"), col=c("blue"), lwd=10, bty = 'n')
+
+#### End Tau Leap Section #### 
+
+#### Start CLE Section ####
+
+# CLE realisation for (1,1)
+bio_setup(1,1,0)
+CLE_out <- simTs(N$M, 0, 60,0.1,stepFun = StepCLE(N))
+# Plot the three main proteins 
+par(mfrow = c(1,3))
+plot(CLE_out[,1], ylab = '[CRO]',xlab = 'Time (minutes)',pch="")
+plot(CLE_out[,2], ylab = '[CI]',xlab = 'Time (minutes)',pch="")
+plot(CLE_out[,3], ylab = '[CII]',xlab = 'Time (minutes)',pch="")
+mtext("CLE Realisation of (1,1)", side = 3, line = - 3, outer = TRUE, cex = 1.5)
+
+# Plot the bound and unbound promoter regions 
+layout(matrix(c(1, 1, 1, 2, 2, 2,  # First, second
+                3, 3, 4, 4, 5, 5), # and third plot
+              nrow = 2,
+              ncol = 6,
+              byrow = TRUE))
+plot(CLE_out[,7], ylab = '[P_rmr]',xlab = 'Time (minutes)',pch="")
+plot(CLE_out[,8], ylab = '[P_re]',xlab = 'Time (minutes)',pch="")
+plot(CLE_out[,9], ylab = '[P_rmr.CRO2]',xlab = 'Time (minutes)',pch="")
+plot(CLE_out[,10], ylab = '[P_rmr.CI2]',xlab = 'Time (minutes)',pch="")
+plot(CLE_out[,11], ylab = '[P_re.CII2]',xlab = 'Time (minutes)',pch="")
+mtext("Unbound Promoter Regions", side = 3, line = - 3, outer = TRUE, cex = 1.5)
+mtext("Bound Promoter Regions", side = 3, line = - 19, outer = TRUE, cex = 1.5)
+
+
+
+n = 50
+# n realisations of the system with MOI = V = 1
+bio_setup(1,1,0)
+avg1 <- c()
+for( i in 1:n){
+  out <- simTs(N$M, 0, 60, 1, stepFun = StepCLE(N,))/V
+  avg1[i] <- mean(out[,3])
+}
+
+
+# n realisations of the system with MOI = V = 2
+
+bio_setup(2,2,0)
+avg2 <- c()
+for( i in 1:n){
+  out <- simTs(N$M, 0, 60, 1, stepFun = StepCLE(N))/V
+  avg2[i] <- mean(out[,3])
+}
+par(mfrow = c(1,2))
+
+# Histograms to show the distibution of the average concentration of CII
+hist(avg1, breaks = 25, xlab = '<[CII]>',probability = TRUE, main = 'Concentration of CII with MOI = 1')
+abline(v = mean(avg1), col = 'blue', lwd = 4)
+legend("topright", c("mean"), col=c("blue"), lwd=10, bty = 'n')
+
+hist(avg2, breaks = 25, xlab = '<[CII]>', main = 'Concentration of CII with MOI = 2')
+abline(v = mean(avg2), col = 'blue', lwd = 4)
+legend("topright", c("mean"), col=c("blue"), lwd=10, bty = 'n')
+
+
+#### End CLE Section ####
+
