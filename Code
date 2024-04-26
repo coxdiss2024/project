@@ -405,7 +405,7 @@ var(avg1)
 var(avg2)
 
 # The time average time to model the system for various dt
-times <- c(0.1,0.05,0.01,0.005,0.001)
+times <- c(0.5)
 n <- 1000
 for (dt in times) {
   print(dt)
@@ -543,6 +543,15 @@ legend("topright", c("mean"), col=c("blue"), lwd=10, bty = 'n')
 hist(avg2, breaks = 30, xlab = '<[CII]>', main = 'Concentration of CII with MOI = 2')
 abline(v = mean(avg2), col = 'blue', lwd = 4)
 legend("topright", c("mean"), col=c("blue"), lwd=10, bty = 'n')
+
+# the average time to run the tau leap algorithm for epsilon = 0.01
+n = 5000 
+print(system.time({
+for( i in 1:n){
+    out <- ssa.adaptivetau(c(CRO=0, CI=0, CII=0, CRO2=0, CI2=0, CII2=0, P_rmr= 1, P_re= 1, P_rmr.CRO2=0, P_rmr.CI2=0, P_re.CII2=0, mRNA.CRO=0, mRNA.CI=0, mRNA.CII=0), transitions, lvrates, tl.params = list(epsilon = 0.01), params, tf=60)
+  }
+})/n)
+
 
 #### End Tau Leap Section #### 
 
